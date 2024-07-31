@@ -14,7 +14,7 @@ export class SocketConnection {
     });
   }
   
-  onmessage(message: { data: Record<string, string> }) {}
+  onmessage(message: { data: string }) {}
   postMessage(data: Record<string, unknown>) {
     this.socket.send(JSON.stringify(data) );
   }
