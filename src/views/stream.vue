@@ -16,7 +16,7 @@ import { onMounted, ref } from 'vue'
 
 const video = ref<HTMLVideoElement | null>(null)
 let mediaStream: MediaStream
-let peerConnection: RTCPeerConnection
+const peerConnection = new RTCPeerConnection({});
 
 const channel = new BroadcastChannel("stream-video");
 channel.onmessage = e => {
@@ -36,9 +36,6 @@ async function start() {
 }
 
 function stream () {
-  const config = {};
-  const peerConnection = new RTCPeerConnection(config);
-
   peerConnection.addEventListener("icecandidate", e => {
     if (e.candidate !== null) {
       channel.postMessage(JSON.stringify({ type: "icecandidate", candidate: e.candidate }));

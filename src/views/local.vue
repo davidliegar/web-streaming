@@ -12,21 +12,18 @@ import { onMounted, ref } from 'vue'
 
 const videoRemote = ref<HTMLVideoElement | null>(null)
 
-let peerConnection: RTCPeerConnection
+const peerConnection = new RTCPeerConnection({});
 const channel = new BroadcastChannel("stream-video");
 channel.onmessage = e => {
   const info = JSON.parse(e.data)
   if (info.type === "icecandidate") {
-    peerConnection?.addIceCandidate(info.candidate)
+    peerConnection.addIceCandidate(info.candidate)
   } else if (info.type === "offer") {
-    console.log("Received offer")
     handleOffer(info.offer)
   }
 }
 
 function handleOffer (offer: RTCSessionDescriptionInit) {
-  const peerConnection = new RTCPeerConnection({});
-
   peerConnection.addEventListener("track", e => {
     if (!videoRemote.value) return
     console.log('tracking')
