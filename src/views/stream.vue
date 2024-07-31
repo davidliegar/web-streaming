@@ -20,11 +20,12 @@ let peerConnection: RTCPeerConnection
 
 const channel = new BroadcastChannel("stream-video");
 channel.onmessage = e => {
-  if (e.data.type === "icecandidate") {
-    peerConnection?.addIceCandidate(e.data.candidate);
-  } else if (e.data.type === "answer") {
+  const info = JSON.parse(e.data)
+  if (info.type === "icecandidate") {
+    peerConnection?.addIceCandidate(info.candidate);
+  } else if (info.type === "answer") {
     console.log("Received answer")
-    peerConnection?.setRemoteDescription(e.data);
+    peerConnection?.setRemoteDescription(info.answer);
   }
 }
 
@@ -40,13 +41,7 @@ function stream () {
 
   peerConnection.addEventListener("icecandidate", e => {
     if (e.candidate !== null) {
-      let candidate = {
-        candidate: e.candidate.candidate,
-        sdpMid: e.candidate.sdpMid,
-        sdpMLineIndex: e.candidate.sdpMLineIndex,
-      }
-
-      channel.postMessage({ type: "icecandidate", candidate });
+      channel.postMessage(JSON.stringify({ type: "icecandidate", candidate: e.candidate }));
     }
   });
 
@@ -58,7 +53,7 @@ function stream () {
   peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
     .then(async offer => {
         await peerConnection.setLocalDescription(offer);
-        channel.postMessage({ type: "offer", sdp: offer.sdp });
+        channel.postMessage(JSON.stringify({ type: "offer", offer }));
         console.log("Created offer, sending...");
       })
 }
