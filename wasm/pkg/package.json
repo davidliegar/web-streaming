@@ -1,0 +1,22 @@
+{
+  "name": "matrix-functions-wasm",
+  "type": "module",
+  "collaborators": [
+    "David Liébana"
+  ],
+  "description": "A simple package to apply convolution matrix over a canvas data pixeles",
+  "version": "0.1.0",
+  "license": "MIT/Apache-2.0",
+  "files": [
+    "matrix_functions_wasm_bg.wasm",
+    "matrix_functions_wasm.js",
+    "matrix_functions_wasm_bg.js",
+    "matrix_functions_wasm.d.ts"
+  ],
+  "main": "matrix_functions_wasm.js",
+  "types": "matrix_functions_wasm.d.ts",
+  "sideEffects": [
+    "./matrix_functions_wasm.js",
+    "./snippets/*"
+  ]
+}
