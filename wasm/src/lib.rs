@@ -64,24 +64,3 @@ pub fn apply_convolution_matrix(
 
   ImageData::new_with_u8_clamped_array_and_sh(Clamped(&output), width, height).unwrap()
 }
-
-
-// #[wasm_bindgen]
-// pub fn convolution_matrix() -> Int32Array {
-//   // let mut kernelY = 0;
-//   // let mut kernelX = 0;
-//   log("Hello, world!");
-  
-//   let mut pixels_result: [i32; 1000000] = [0; 1000000];
-
-//   for p in 0..(500 * 500) {
-//     let ptr = p * 4;
-
-//     pixels_result[ptr] = 255;
-//     pixels_result[ptr + 1] = 0;
-//     pixels_result[ptr + 2] = 0;
-//     pixels_result[ptr + 3] = 255;
-//   }
-
-//   return Int32Array::from(&pixels_result[..]);
-// }
