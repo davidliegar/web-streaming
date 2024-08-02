@@ -80,7 +80,7 @@
       class="canvas"
     />
 
-    <button @click="stream">stream video</button>
+    <!-- <button @click="stream">stream video</button> -->
   </section>
 </template>
 
@@ -107,18 +107,18 @@ const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(und
 const useWasm = ref(true)
 
 let mediaStream: MediaStream
-const peerConnection = new RTCPeerConnection({});
-const socketConnection = new SocketConnection("stream-video")
+// const peerConnection = new RTCPeerConnection({});
+// const socketConnection = new SocketConnection("stream-video")
 
-socketConnection.onmessage = e => {
-  const info = JSON.parse(e.data)
-  if (info.type === "icecandidate") {
-    peerConnection?.addIceCandidate(info.candidate);
-  } else if (info.type === "answer") {
-    console.log("Received answer")
-    peerConnection?.setRemoteDescription(info.answer);
-  }
-}
+// socketConnection.onmessage = e => {
+//   const info = JSON.parse(e.data)
+//   if (info.type === "icecandidate") {
+//     peerConnection?.addIceCandidate(info.candidate);
+//   } else if (info.type === "answer") {
+//     console.log("Received answer")
+//     peerConnection?.setRemoteDescription(info.answer);
+//   }
+// }
 
 async function start () {
   if (!video.value || !canvas.value) return
@@ -160,25 +160,25 @@ async function start () {
   }
 }
 
-function stream () {
-  peerConnection.addEventListener("icecandidate", e => {
-    if (e.candidate !== null) {
-      socketConnection.postMessage({ type: "icecandidate", candidate: e.candidate });
-    }
-  });
+// function stream () {
+//   peerConnection.addEventListener("icecandidate", e => {
+//     if (e.candidate !== null) {
+//       socketConnection.postMessage({ type: "icecandidate", candidate: e.candidate });
+//     }
+//   });
 
-  if (!video.value) return
+//   if (!video.value) return
 
-  mediaStream.getTracks()
-    .forEach(track => peerConnection.addTrack(track, mediaStream));
+//   mediaStream.getTracks()
+//     .forEach(track => peerConnection.addTrack(track, mediaStream));
 
-  peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-    .then(async offer => {
-        await peerConnection.setLocalDescription(offer);
-        socketConnection.postMessage({ type: "offer", offer })
-        console.log("Created offer, sending...")
-      })
-}
+//   peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
+//     .then(async offer => {
+//         await peerConnection.setLocalDescription(offer);
+//         socketConnection.postMessage({ type: "offer", offer })
+//         console.log("Created offer, sending...")
+//       })
+// }
 
 
 onMounted(() => {
