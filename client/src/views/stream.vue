@@ -79,7 +79,8 @@
       ref="canvas" 
       class="canvas"
     />
-    <!-- <button @click="stream">stream video</button> -->
+
+    <button @click="stream">stream video</button>
   </section>
 </template>
 
@@ -106,23 +107,25 @@ const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(und
 const useWasm = ref(true)
 
 let mediaStream: MediaStream
-// const peerConnection = new RTCPeerConnection({});
-// const socketConnection = new SocketConnection("stream-video")
+const peerConnection = new RTCPeerConnection({});
+const socketConnection = new SocketConnection("stream-video")
 
-// socketConnection.onmessage = e => {
-//   const info = JSON.parse(e.data)
-//   if (info.type === "icecandidate") {
-//     peerConnection?.addIceCandidate(info.candidate);
-//   } else if (info.type === "answer") {
-//     console.log("Received answer")
-//     peerConnection?.setRemoteDescription(info.answer);
-//   }
-// }
+socketConnection.onmessage = e => {
+  const info = JSON.parse(e.data)
+  if (info.type === "icecandidate") {
+    peerConnection?.addIceCandidate(info.candidate);
+  } else if (info.type === "answer") {
+    console.log("Received answer")
+    peerConnection?.setRemoteDescription(info.answer);
+  }
+}
 
 async function start () {
   if (!video.value || !canvas.value) return
-  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-  video.value.srcObject = mediaStream;
+  let videoMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+  video.value.srcObject = videoMediaStream;
+
+  mediaStream = canvas.value.captureStream(30);
 
   canvas.value.width = 500 * window.devicePixelRatio
   canvas.value.height = 500 * window.devicePixelRatio
@@ -132,21 +135,10 @@ async function start () {
 
 
   video.value.addEventListener('loadeddata', function() {
-    update(0);
+    update();
   })
 
-  let previousDelta = 0
-  const fpsLimit = 30
-
-  function update(currentDelta: number) {
-    requestAnimationFrame(update);
-
-    const delta = currentDelta - previousDelta;
-
-    if (fpsLimit && delta < 1000 / fpsLimit) {
-      return;
-    }
-
+  function update() {
     if (video.value && canvas.value) {
       drawVideoIntoCanvasFullWidth(canvas.value, video.value)
 
@@ -163,29 +155,30 @@ async function start () {
         applyConvolutionMatrix(canvas.value, convolutionToApply, useWasm.value)
       }
     }
-    previousDelta = currentDelta;
+
+    setTimeout(update, 1000 / 30)
   }
 }
 
-// function stream () {
-//   peerConnection.addEventListener("icecandidate", e => {
-//     if (e.candidate !== null) {
-//       socketConnection.postMessage({ type: "icecandidate", candidate: e.candidate });
-//     }
-//   });
+function stream () {
+  peerConnection.addEventListener("icecandidate", e => {
+    if (e.candidate !== null) {
+      socketConnection.postMessage({ type: "icecandidate", candidate: e.candidate });
+    }
+  });
 
-//   if (!video.value) return
+  if (!video.value) return
 
-//   mediaStream.getTracks()
-//     .forEach(track => peerConnection.addTrack(track, mediaStream));
+  mediaStream.getTracks()
+    .forEach(track => peerConnection.addTrack(track, mediaStream));
 
-//   peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-//     .then(async offer => {
-//         await peerConnection.setLocalDescription(offer);
-//         socketConnection.postMessage({ type: "offer", offer })
-//         console.log("Created offer, sending...")
-//       })
-// }
+  peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
+    .then(async offer => {
+        await peerConnection.setLocalDescription(offer);
+        socketConnection.postMessage({ type: "offer", offer })
+        console.log("Created offer, sending...")
+      })
+}
 
 
 onMounted(() => {
