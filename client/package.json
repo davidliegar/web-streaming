@@ -1,5 +1,5 @@
 {
-  "name": "web-streaming",
+  "name": "web-streaming-client",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
   },
   "dependencies": {
-    "matrix-functions-wasm": "file:../wasm/pkg",
+    "matrix-functions-wasm": "*",
     "vue": "^3.4.29",
     "vue-router": "^4.4.0"
   },

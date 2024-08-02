@@ -1,0 +1,16 @@
+{
+  "name": "web-streaming",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "wasm/pkg"
+  ],
+  "collaborators": [
+    "David Liébana"
+  ],
+  "description": "web streaming using filters on video and wrtc p2p communication",
+  "scripts": {
+    "dev": "npm run dev --w client",
+    "build": "npm run build --w client"
+  }
+}
