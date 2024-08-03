@@ -1,87 +1,96 @@
 <template>
-  <h3>Web streaming</h3>
-  <form class="form">
-    <h3>Apply Filters</h3>
+  <header class="header">
+    <h1>Web streaming</h1>
+  </header>
+    <div class="local-video">
+      <form class="form">
+        <h4>Apply Filters</h4>
+        
+        <label class="tool">
+          Apply B&W
+          <input 
+            type="checkbox" 
+            v-model="hasToBlackAndWhite"
+          >
+        </label>
     
-    <label class="tool">
-      Apply B&W
-      <input 
-        type="checkbox" 
-        v-model="hasToBlackAndWhite"
-      >
-    </label>
-
-    <h3>Apply convolution matrix</h3>
-    <label class="tool">
-      Use Wasm algorithm (made with rust, better performance), 
-      <input 
-        type="checkbox" 
-        v-model="useWasm"
-      >
-    </label>
-
-    <label class="tool">
-      None
-      <input 
-        type="radio" 
-        value="undefined"
-        v-model="convolution"
-      >
-    </label>
-
-    <label class="tool">
-      Apply Sobel (Edge detection)
-      <input 
-        type="radio" 
-        value=sober
-        v-model="convolution"
-      >
-    </label>
-
-    <label class="tool">
-      Emboss
-      <input 
-        type="radio" 
-        value=emboss
-        v-model="convolution"
-      >
-    </label>
-
-    <label class="tool">
-      Sharpen
-      <input 
-        type="radio" 
-        value=sharpen
-        v-model="convolution"
-      >
-    </label>
-
-    <label class="tool">
-      Blur
-      <input 
-        type="radio" 
-        value=blur
-        v-model="convolution"
-      >
-    </label>
-  </form>
-
-
-  <section class="video">
-    <video 
-     ref="video" 
-     class="video"
-     autoplay 
-     muted
-    />
-
-    <canvas 
-      ref="canvas" 
-      class="canvas"
-    />
-
-    <!-- <button @click="stream">stream video</button> -->
-  </section>
+        <h4>Apply convolution matrix</h4>
+        <label class="tool">
+          Use Wasm algorithm (made with rust, better performance), 
+          <input 
+            type="checkbox" 
+            v-model="useWasm"
+          >
+        </label>
+    
+        <label class="tool">
+          None
+          <input 
+            type="radio" 
+            value="undefined"
+            v-model="convolution"
+          >
+        </label>
+    
+        <label class="tool">
+          Apply Sobel (Edge detection)
+          <input 
+            type="radio" 
+            value=sober
+            v-model="convolution"
+          >
+        </label>
+    
+        <label class="tool">
+          Emboss
+          <input 
+            type="radio" 
+            value=emboss
+            v-model="convolution"
+          >
+        </label>
+    
+        <label class="tool">
+          Sharpen
+          <input 
+            type="radio" 
+            value=sharpen
+            v-model="convolution"
+          >
+        </label>
+    
+        <label class="tool">
+          Blur
+          <input 
+            type="radio" 
+            value=blur
+            v-model="convolution"
+          >
+        </label>
+      </form>
+    
+      <section class="video-wrapper">
+        <video 
+         ref="video" 
+         class="video"
+         autoplay 
+         muted
+        />
+    
+        <canvas 
+          ref="canvas" 
+          class="canvas"
+        />
+      </section>
+    </div>
+    <div class="width-constrain">
+    <h3>People connected</h3>
+    <section class="videos-remote">
+      <video 
+        ref="videoRemote" 
+      />
+    </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -98,8 +107,16 @@ import {
   GAUSSIAN_BLUR
 } from '@/utilities/canvas'
 
+import {
+  createOffer,
+  handleAnswer,
+  handleIceCandidate,
+  handleOffer,
+  createPeerConnection
+} from '@/utilities/RTCSession'
 const video = ref<HTMLVideoElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
+const videoRemote = ref<HTMLVideoElement | null>(null)
 
 const hasToBlackAndWhite = ref(false)
 const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(undefined)
@@ -107,18 +124,20 @@ const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(und
 const useWasm = ref(true)
 
 let mediaStream: MediaStream
-// const peerConnection = new RTCPeerConnection({});
-// const socketConnection = new SocketConnection("stream-video")
+const socketConnection = new SocketConnection("stream-video")
+let peerConnectionA: RTCPeerConnection
+let peerConnectionB: RTCPeerConnection
 
-// socketConnection.onmessage = e => {
-//   const info = JSON.parse(e.data)
-//   if (info.type === "icecandidate") {
-//     peerConnection?.addIceCandidate(info.candidate);
-//   } else if (info.type === "answer") {
-//     console.log("Received answer")
-//     peerConnection?.setRemoteDescription(info.answer);
-//   }
-// }
+socketConnection.onmessage = e => {
+  const info = JSON.parse(e.data)
+  if (info.type === "icecandidate") {
+    handleIceCandidate(info.candidate, peerConnectionA)
+  } else if (info.type === "answer") {
+    handleAnswer(info.answer, peerConnectionA);
+  } else if (info.type === 'offer') {
+    handleOffer(info.offer, peerConnectionB, socketConnection)
+  }
+}
 
 async function start () {
   if (!video.value || !canvas.value) return
@@ -152,7 +171,9 @@ async function start () {
           blur: [GAUSSIAN_BLUR]
         }[convolution.value]
 
-        applyConvolutionMatrix(canvas.value, convolutionToApply, useWasm.value)
+        if (convolutionToApply) {
+          applyConvolutionMatrix(canvas.value, convolutionToApply, useWasm.value)
+        }
       }
     }
 
@@ -160,35 +181,49 @@ async function start () {
   }
 }
 
-// function stream () {
-//   peerConnection.addEventListener("icecandidate", e => {
-//     if (e.candidate !== null) {
-//       socketConnection.postMessage({ type: "icecandidate", candidate: e.candidate });
-//     }
-//   });
+async function stream () {
+  mediaStream.getTracks()
+    .forEach(track => peerConnectionA.addTrack(track, mediaStream));
 
-//   if (!video.value) return
+  await createOffer(peerConnectionA, socketConnection)  
 
-//   mediaStream.getTracks()
-//     .forEach(track => peerConnection.addTrack(track, mediaStream));
+}
 
-//   peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-//     .then(async offer => {
-//         await peerConnection.setLocalDescription(offer);
-//         socketConnection.postMessage({ type: "offer", offer })
-//         console.log("Created offer, sending...")
-//       })
-// }
+onMounted(async () => {
+  await start()
+  await socketConnection.init()
 
+  if (videoRemote.value) {
+    peerConnectionA = createPeerConnection(socketConnection, videoRemote.value)
+    peerConnectionB = createPeerConnection(socketConnection, videoRemote.value)
+  }
 
-onMounted(() => {
-  start()
+  stream()
 })
 </script>
 
 <style lang="postcss">
+.header {
+  background: #2f2d9e;
+  color: white;
+  font-weight: 700;
+  font-size: 2rem;
+  padding: 0 1rem;
+
+  & h1 {
+    margin: 0;
+  }
+}
+
 .tool {
   display: block;
+}
+
+.local-video {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 1rem 3rem;
+  background-color: #f3f2f2;
 }
 
 .form {
@@ -205,5 +240,18 @@ onMounted(() => {
   width: 0px;
   height: 0px;
   position: absolute;
+}
+
+.width-constrain {
+  padding: 1rem 3rem;
+}
+
+.videos-remote {
+  display: grid;
+  grid-auto-columns: 500px;
+
+  & video {
+    width: 100%;
+  }
 }
 </style>

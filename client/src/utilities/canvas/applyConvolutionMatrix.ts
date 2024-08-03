@@ -3,7 +3,7 @@ import type { KERNEL3X3 } from "./convolutionMatrix";
 
 export function applyConvolutionMatrix(
   canvas: HTMLCanvasElement,
-  kernels: KERNEL3X3[],
+  kernels: KERNEL3X3[] = [],
   useWasm: boolean = true) {
   const ctx = canvas.getContext('2d')
   const imgData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
