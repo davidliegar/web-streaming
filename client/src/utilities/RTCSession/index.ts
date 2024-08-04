@@ -42,8 +42,8 @@ export async function handleIceCandidate(candidate: RTCIceCandidateInit, peerCon
   }
 }
 
-export function createPeerConnection(socket: SocketConnection, index): RTCPeerConnection {
-  let video:HTMLVideoElement
+export function createPeerConnection(socket: SocketConnection, index: number): RTCPeerConnection {
+  let video:HTMLVideoElement | undefined
   
   const configuration: RTCConfiguration = {
     iceServers: [
@@ -65,8 +65,10 @@ export function createPeerConnection(socket: SocketConnection, index): RTCPeerCo
       video = document.getElementById(`video-${index}`) as HTMLVideoElement | undefined
     }
 
-    video.srcObject = event.streams[0]
-    video.play()
+    if (video) {
+      video.srcObject = event.streams[0]
+      video.play()
+    }
   };
 
   peerConnection.oniceconnectionstatechange = () => {
