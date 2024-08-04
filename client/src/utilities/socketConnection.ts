@@ -11,8 +11,9 @@ export class SocketConnection {
   async init() {
     return new Promise((resolve) => {
       this.socket.addEventListener("message", (e) => {
+        console.log(e.data)
         const object = JSON.parse(e.data || '{}');
-        this.onmessage({ data: object });
+        this.onmessage(object);
       })
 
       this.socket.addEventListener("open", () => {
@@ -28,7 +29,7 @@ export class SocketConnection {
     })
   }
   
-  onmessage(message: { data: string }) {
+  onmessage(message: Record<string, any>) {
   }
 
   postMessage(data: Record<string, unknown>) {

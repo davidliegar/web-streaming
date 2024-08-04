@@ -84,7 +84,7 @@
       </section>
     </div>
     <div class="width-constrain">
-    <h3>People connected</h3>
+    <h3>{{ totalPeers }} people connected</h3>
     <section class="videos-remote">
       <video
         v-for="(peer, index) in remoteConnections"
@@ -127,15 +127,15 @@ let mediaStream: MediaStream
 const socketConnection = new SocketConnection('stream-video')
 let peerConnection: RTCPeerConnection
 const remoteConnections: Ref<RTCPeerConnection[]> = ref([])
+let totalPeers = ref(0)
 
-socketConnection.onmessage = e => {
-  const info = JSON.parse(e.data)
+socketConnection.onmessage = info => {
+  totalPeers.value = info.total
   if (info.type === 'join-channel') {
-    console.log('joinin channel')
     remoteConnections.value.push(
       createPeerConnection(
         socketConnection,
-        remoteConnections.value.length + 1
+        totalPeers.value
       )
     )
   } else if (info.type === 'icecandidate') {

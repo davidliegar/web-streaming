@@ -34,9 +34,10 @@ async function handleMessage (message) {
   });
   
   const result = await docClient.send(query);
-  
+
+  const messageJSON = JSON.parse(message)
   result.Items.forEach(async item => {
-    await sendMessage(message, item.connectionid);
+    await sendMessage({ ...messageJSON, total: result.Items.length }, item.connectionid);
   });
 }
 
