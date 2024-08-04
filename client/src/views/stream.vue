@@ -136,13 +136,11 @@ socketConnection.onmessage = info => {
   const { type, senderId, targetId, offer, answer, candidate } = info;
   console.log('2', type, targetId, myId)
   
-  if (type === 'join-channel') {
-    myId = senderId
-  }
-
   if (targetId && targetId !== myId) return; 
 
-  if (type === 'icecandidate') {
+  if (type === 'join-channel') {
+    myId = senderId
+  } else if (type === 'icecandidate') {
     handleIceCandidate(candidate, senderId)
   } else if (type === 'answer') {
     handleAnswer(answer, senderId);
@@ -206,7 +204,6 @@ onMounted(async () => {
 
   peerConnection = createPeerConnection(socketConnection, socketConnection.id)
   await stream(socketConnection.id)
-  sendMessageToAllPeers()
 })
 </script>
 
