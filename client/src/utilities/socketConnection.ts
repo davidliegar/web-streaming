@@ -1,7 +1,9 @@
 
+import { ulid} from 'ulid'
 export class SocketConnection {
   socket: WebSocket
   channel: string
+  id: string = ulid()
 
   constructor(channel: string) {    
     this.socket = new WebSocket('wss://ylqihexi6d.execute-api.eu-west-2.amazonaws.com/production/');
@@ -11,7 +13,6 @@ export class SocketConnection {
   async init() {
     return new Promise((resolve) => {
       this.socket.addEventListener("message", (e) => {
-        console.log(e.data)
         const object = JSON.parse(e.data || '{}');
         this.onmessage(object);
       })
@@ -33,6 +34,6 @@ export class SocketConnection {
   }
 
   postMessage(data: Record<string, unknown>) {
-    this.socket.send(JSON.stringify(data) );
+    this.socket.send(JSON.stringify({ ...data, senderId: this.id }) );
   }
 }

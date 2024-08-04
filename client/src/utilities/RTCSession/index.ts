@@ -1,34 +1,82 @@
 import type { SocketConnection } from "../socketConnection";
 
-const pendingCandidates: RTCIceCandidateInit[] = [];
+interface PeerConnection {
+  id: string,
+  connection: RTCPeerConnection
+}
+interface PendingCandidates {
+  id: string,
+  candidate: RTCIceCandidateInit
+}
 
-export async function createOffer(peerConnection: RTCPeerConnection, socket: SocketConnection): Promise<void> {
+const pendingCandidates: PendingCandidates[] = [];
+export const peerConnections: PeerConnection[] = [];
+
+export async function createOffer(id: string, socket: SocketConnection): Promise<void> {
+  const peerConnection = peerConnections.find(p => p.id === id)?.connection;
+
+  if (!peerConnection) {
+    console.error(`No peer connection found for id ${id}`);
+    return;
+  }
+  
   const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
   await peerConnection.setLocalDescription(offer);
-  socket.postMessage({ type: "offer", offer })
+  socket.postMessage({ type: "offer", offer, targetId: id })
   console.log("Created offer:", offer);
 }
 
-export async function handleOffer (offer: RTCSessionDescriptionInit, peerConnection: RTCPeerConnection, socket: SocketConnection) {
+export async function handleOffer(offer: RTCSessionDescriptionInit, senderId: string, socket: SocketConnection) {
+  let peerConnection = peerConnections.find(p => p.id === senderId)?.connection;
+  if (!peerConnection) {
+    peerConnection = createPeerConnection(socket, senderId);
+  }
+
+  // Establecer la oferta remota
+  if (peerConnection.signalingState === "stable") {
+    console.error(`Connection is already stable for peer ${senderId}`);
+    return;
+  }
+
+
   await peerConnection.setRemoteDescription(offer)
   
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
-  socket.postMessage({ type: 'answer', answer })
+  socket.postMessage({ type: 'answer', answer, targetId: senderId })
   console.log("Created answer:", answer);
 
   for (const candidate of pendingCandidates) {
-    await handleIceCandidate(candidate, peerConnection);
+    await handleIceCandidate(candidate.candidate, candidate.id);
   }
 
   pendingCandidates.length = 0;
 }
 
-export async function handleAnswer (answer: RTCSessionDescriptionInit, peerConnection: RTCPeerConnection): Promise<void> {
-  await peerConnection.setRemoteDescription(answer);
+export async function handleAnswer (answer: RTCSessionDescriptionInit, id: string): Promise<void> {
+  const peerConnection = peerConnections.find(p => p.id === id)?.connection;
+
+  if (!peerConnection) {
+      console.error(`No peer connection found for id ${id}`);
+      return;
+  }
+
+  if (peerConnection.signalingState === "have-local-offer") {
+    await peerConnection.setRemoteDescription(answer);
+    console.log(`Set remote description for peer ${id} with answer`, answer);
+  } else {
+    console.error(`Unexpected signaling state ${peerConnection.signalingState} for peer ${id}`);
+  }
 }
 
-export async function handleIceCandidate(candidate: RTCIceCandidateInit, peerConnection: RTCPeerConnection): Promise<void> {
+export async function handleIceCandidate(candidate: RTCIceCandidateInit, id: string): Promise<void> {
+  const peerConnection = peerConnections.find(p => p.id === id)?.connection;
+
+  if (!peerConnection) {
+    console.error(`No peer connection found for id ${id}`);
+    return;
+  }
+  
   if (peerConnection.remoteDescription) {
     try {
       await peerConnection.addIceCandidate(candidate);
@@ -38,11 +86,11 @@ export async function handleIceCandidate(candidate: RTCIceCandidateInit, peerCon
     }
   } else {
     console.log("Remote description not set yet, storing candidate");
-    pendingCandidates.push(candidate);
+    pendingCandidates.push({ id, candidate });
   }
 }
 
-export function createPeerConnection(socket: SocketConnection, index: number): RTCPeerConnection {
+export function createPeerConnection(socket: SocketConnection, id: string): RTCPeerConnection {
   let video:HTMLVideoElement | undefined
   
   const configuration: RTCConfiguration = {
@@ -55,16 +103,16 @@ export function createPeerConnection(socket: SocketConnection, index: number): R
 
   peerConnection.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
     if (event.candidate) {
-      socket.postMessage({ type: "icecandidate", candidate: event.candidate });
+      socket.postMessage({ type: "icecandidate", candidate: event.candidate, targetId: id, });
     }
   };
 
   peerConnection.ontrack = (event: RTCTrackEvent) => {
-    console.log('on-track', video)
+    console.log('on-track', video, `video-${id}`)
     if (!video) {
-      video = document.getElementById(`video-${index}`) as HTMLVideoElement | undefined
+      video = document.getElementById(`video-${id}`) as HTMLVideoElement | undefined
     }
-
+    console.log('on-track 2', video, `video-${id}`)
     if (video) {
       video.srcObject = event.streams[0]
       video.play()
@@ -75,5 +123,17 @@ export function createPeerConnection(socket: SocketConnection, index: number): R
     console.log("ICE connection state:", peerConnection.iceConnectionState);
   };
 
+  peerConnections.push({ id, connection: peerConnection });
+
   return peerConnection;
+}
+
+export function sendMessageToAllPeers () {
+  peerConnections.forEach((peer) => {
+    const dataChannel = peer.connection.createDataChannel('chat');
+    dataChannel.onopen = () => {
+      dataChannel.send('Hello from Vue!');
+      console.log(`Message sent to peer ${peer.id}`);
+    };
+  });
 }

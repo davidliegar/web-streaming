@@ -87,8 +87,8 @@
     <h3>{{ totalPeers }} people connected</h3>
     <section class="videos-remote">
       <video
-        v-for="(peer, index) in remoteConnections"
-        :id="`video-${index + 1}`"
+        v-for="(peer) in peerConnections"
+        :id="`video-${peer.id}`"
       />
     </section>
   </div>
@@ -109,11 +109,13 @@ import {
 } from '@/utilities/canvas'
 
 import {
+  peerConnections,
   createOffer,
   handleAnswer,
   handleIceCandidate,
   handleOffer,
-  createPeerConnection
+  createPeerConnection,
+  sendMessageToAllPeers
 } from '@/utilities/RTCSession'
 const video = ref<HTMLVideoElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -126,26 +128,26 @@ const useWasm = ref(true)
 let mediaStream: MediaStream
 const socketConnection = new SocketConnection('stream-video')
 let peerConnection: RTCPeerConnection
-const remoteConnections: Ref<RTCPeerConnection[]> = ref([])
 let totalPeers = ref(0)
+let myId = ''
 
 socketConnection.onmessage = info => {
   totalPeers.value = info.total
-  if (info.type === 'join-channel') {
-    remoteConnections.value.push(
-      createPeerConnection(
-        socketConnection,
-        totalPeers.value
-      )
-    )
-  } else if (info.type === 'icecandidate') {
-    handleIceCandidate(info.candidate, peerConnection)
-  } else if (info.type === 'answer') {
-    handleAnswer(info.answer, peerConnection);
-  } else if (info.type === 'offer') {
-    remoteConnections.value.forEach(peer => {
-      handleOffer(info.offer, peer, socketConnection)
-    })
+  const { type, senderId, targetId, offer, answer, candidate } = info;
+  console.log('2', type, targetId, myId)
+  
+  if (type === 'join-channel') {
+    myId = senderId
+  }
+
+  if (targetId && targetId !== myId) return; 
+
+  if (type === 'icecandidate') {
+    handleIceCandidate(candidate, senderId)
+  } else if (type === 'answer') {
+    handleAnswer(answer, senderId);
+  } else if (type === 'offer') {
+    handleOffer(offer, senderId, socketConnection)
   }
 }
 
@@ -191,21 +193,20 @@ async function start () {
   }
 }
 
-async function stream () {
+async function stream (id: string) {
   mediaStream.getTracks()
     .forEach(track => peerConnection.addTrack(track, mediaStream));
 
-  await createOffer(peerConnection, socketConnection)  
-
+  await createOffer(id, socketConnection)  
 }
 
 onMounted(async () => {
   await start()
   await socketConnection.init()
 
-  peerConnection = createPeerConnection(socketConnection, 0)
-
-  stream()
+  peerConnection = createPeerConnection(socketConnection, socketConnection.id)
+  await stream(socketConnection.id)
+  sendMessageToAllPeers()
 })
 </script>
 

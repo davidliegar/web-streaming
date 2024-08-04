@@ -12,5 +12,8 @@
   "scripts": {
     "dev": "npm run dev --w client",
     "build": "npm run build --w client"
+  },
+  "devDependencies": {
+    "ulid": "^2.3.0"
   }
 }
