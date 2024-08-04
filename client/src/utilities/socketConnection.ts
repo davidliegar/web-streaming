@@ -3,11 +3,12 @@ import { ulid} from 'ulid'
 export class SocketConnection {
   socket: WebSocket
   channel: string
-  id: string = ulid()
+  id: string
 
   constructor(channel: string) {    
     this.socket = new WebSocket('wss://ylqihexi6d.execute-api.eu-west-2.amazonaws.com/production/');
     this.channel = channel
+    this.id = ulid()
   }
 
   async init() {

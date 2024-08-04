@@ -87,7 +87,7 @@
     <h3>{{ totalPeers }} people connected</h3>
     <section class="videos-remote">
       <video
-        v-for="(peer) in peerConnections"
+        v-for="(peer) in peerConnections.filter(peer => peer.id !== myId)"
         :id="`video-${peer.id}`"
       />
     </section>
@@ -136,17 +136,15 @@ socketConnection.onmessage = info => {
   const { type, senderId, targetId, offer, answer, candidate } = info;
   console.log('2', type, targetId, myId)
   
-  if (targetId && targetId !== myId) return; 
-
-  if (type === 'join-channel') {
-    myId = senderId
-  } else if (type === 'icecandidate') {
-    handleIceCandidate(candidate, senderId)
+  if (targetId && targetId !== myId) {
+    if (type === 'icecandidate') {
+      handleIceCandidate(candidate, senderId)
+    } else if (type === 'offer') {
+      handleOffer(offer, senderId, socketConnection)
+    }
   } else if (type === 'answer') {
     handleAnswer(answer, senderId);
-  } else if (type === 'offer') {
-    handleOffer(offer, senderId, socketConnection)
-  }
+  } 
 }
 
 async function start () {
@@ -204,6 +202,7 @@ onMounted(async () => {
 
   peerConnection = createPeerConnection(socketConnection, socketConnection.id)
   await stream(socketConnection.id)
+  myId = socketConnection.id
 })
 </script>
 
