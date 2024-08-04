@@ -86,8 +86,9 @@
     <div class="width-constrain">
     <h3>People connected</h3>
     <section class="videos-remote">
-      <video 
-        ref="videoRemote" 
+      <video
+        v-for="(peer, index) in remoteConnections"
+        :id="`video-${index + 1}`"
       />
     </section>
   </div>
@@ -95,7 +96,7 @@
 
 <script setup lang="ts">
 import { SocketConnection } from '@/utilities/socketConnection';
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, type Ref } from 'vue'
 import {
   toBlackAndWhite,
   drawVideoIntoCanvasFullWidth,
@@ -116,7 +117,6 @@ import {
 } from '@/utilities/RTCSession'
 const video = ref<HTMLVideoElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
-const videoRemote = ref<HTMLVideoElement | null>(null)
 
 const hasToBlackAndWhite = ref(false)
 const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(undefined)
@@ -124,18 +124,28 @@ const convolution = ref<'sober' | 'emboss' | 'sharpen' | 'blur' | undefined>(und
 const useWasm = ref(true)
 
 let mediaStream: MediaStream
-const socketConnection = new SocketConnection("stream-video")
-let peerConnectionA: RTCPeerConnection
-let peerConnectionB: RTCPeerConnection
+const socketConnection = new SocketConnection('stream-video')
+let peerConnection: RTCPeerConnection
+const remoteConnections: Ref<RTCPeerConnection[]> = ref([])
 
 socketConnection.onmessage = e => {
   const info = JSON.parse(e.data)
-  if (info.type === "icecandidate") {
-    handleIceCandidate(info.candidate, peerConnectionA)
-  } else if (info.type === "answer") {
-    handleAnswer(info.answer, peerConnectionA);
+  if (info.type === 'join-channel') {
+    console.log('joinin channel')
+    remoteConnections.value.push(
+      createPeerConnection(
+        socketConnection,
+        remoteConnections.value.length + 1
+      )
+    )
+  } else if (info.type === 'icecandidate') {
+    handleIceCandidate(info.candidate, peerConnection)
+  } else if (info.type === 'answer') {
+    handleAnswer(info.answer, peerConnection);
   } else if (info.type === 'offer') {
-    handleOffer(info.offer, peerConnectionB, socketConnection)
+    remoteConnections.value.forEach(peer => {
+      handleOffer(info.offer, peer, socketConnection)
+    })
   }
 }
 
@@ -183,9 +193,9 @@ async function start () {
 
 async function stream () {
   mediaStream.getTracks()
-    .forEach(track => peerConnectionA.addTrack(track, mediaStream));
+    .forEach(track => peerConnection.addTrack(track, mediaStream));
 
-  await createOffer(peerConnectionA, socketConnection)  
+  await createOffer(peerConnection, socketConnection)  
 
 }
 
@@ -193,16 +203,13 @@ onMounted(async () => {
   await start()
   await socketConnection.init()
 
-  if (videoRemote.value) {
-    peerConnectionA = createPeerConnection(socketConnection, videoRemote.value)
-    peerConnectionB = createPeerConnection(socketConnection, videoRemote.value)
-  }
+  peerConnection = createPeerConnection(socketConnection, 0)
 
   stream()
 })
 </script>
 
-<style lang="postcss">
+<style lang="postcss" scoped>
 .header {
   background: #2f2d9e;
   color: white;

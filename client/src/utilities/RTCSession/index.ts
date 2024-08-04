@@ -42,7 +42,9 @@ export async function handleIceCandidate(candidate: RTCIceCandidateInit, peerCon
   }
 }
 
-export function createPeerConnection(socket: SocketConnection, video: HTMLVideoElement): RTCPeerConnection {
+export function createPeerConnection(socket: SocketConnection, index): RTCPeerConnection {
+  let video:HTMLVideoElement
+  
   const configuration: RTCConfiguration = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" } // STUN server
@@ -58,6 +60,11 @@ export function createPeerConnection(socket: SocketConnection, video: HTMLVideoE
   };
 
   peerConnection.ontrack = (event: RTCTrackEvent) => {
+    console.log('on-track', video)
+    if (!video) {
+      video = document.getElementById(`video-${index}`) as HTMLVideoElement | undefined
+    }
+
     video.srcObject = event.streams[0]
     video.play()
   };
