@@ -86,13 +86,8 @@
     <div class="width-constrain">
     <h3>{{ totalPeers }} people connected</h3>
     <section class="videos-remote">
-      <ul>
-        <li v-for="(peer) in peerConnectionsReactive">
-          {{ peer.id }}
-        </li>
-      </ul>
       <video
-        v-for="(peer) in peerConnectionsReactive.filter(peer => peer.id !== myId)"
+        v-for="(peer) in peerConnections.filter(peer => peer.id !== myId)"
         :id="`video-${peer.id}`"
       />
     </section>
@@ -101,7 +96,7 @@
 
 <script setup lang="ts">
 import { SocketConnection } from '@/utilities/socketConnection';
-import { onMounted, ref, watch, type Ref } from 'vue'
+import { onMounted, ref, watch, watchEffect, type Ref } from 'vue'
 import {
   toBlackAndWhite,
   drawVideoIntoCanvasFullWidth,
@@ -120,7 +115,6 @@ import {
   handleIceCandidate,
   handleOffer,
   createPeerConnection,
-  type PeerConnection
 } from '@/utilities/RTCSession'
 const video = ref<HTMLVideoElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -132,28 +126,30 @@ const useWasm = ref(true)
 
 let mediaStream: MediaStream
 const socketConnection = new SocketConnection('stream-video')
-let peerConnection: RTCPeerConnection
 let totalPeers = ref(0)
-let myId = ''
-const peerConnectionsReactive = ref<PeerConnection[]>([])
+let myId = ref('')
 
-watch(() => peerConnections, () => {
-  peerConnectionsReactive.value = peerConnections
-}, { deep: true, immediate: true })
-
-socketConnection.onmessage = info => {
+socketConnection.onmessage = async (info) => {
   totalPeers.value = info.total
-  const { type, senderId, targetId, offer, answer, candidate, total } = info;
-  console.log('2', type, targetId, myId)
+  const { type, senderId, targetId, offer, answer, candidate } = info;
+  console.log('2', type, { targetId, senderId, myId: myId.value })
   
-  if (targetId && targetId !== myId) return
+  if (targetId && targetId !== myId.value) {
+    if (type === 'existing-user') {
+      console.log('ha llegado', senderId)
+      await connectToExistingUser(senderId);
+    }
+  } else if (type === 'join-channel') {
+    await connectToExistingUser(senderId);
+    await createOffer(myId.value, socketConnection)  
 
-  if (type === 'icecandidate') {
-    handleIceCandidate(candidate, senderId)
+    socketConnection.postMessage({ type: "existing-user", targetId: myId.value }) 
+  } else if (type === 'icecandidate') {
+    await handleIceCandidate(candidate, senderId)
   } else if (type === 'offer') {
-    handleOffer(offer, targetId, socketConnection)
+    await handleOffer(offer, senderId, socketConnection, mediaStream)
   } else if (type === 'answer') {
-    handleAnswer(answer, senderId);
+    await handleAnswer(answer, senderId);
   } 
 }
 
@@ -172,11 +168,22 @@ async function start () {
 
 
   video.value.addEventListener('loadeddata', function() {
-    update();
+    update(0);
   })
 
-  function update() {
+  let previousDelta = 0
+  const fpsLimit = 30
+
+  function update(currentDelta: number) {
     if (video.value && canvas.value) {
+      requestAnimationFrame(update);
+
+      var delta = currentDelta - previousDelta;
+
+      if (fpsLimit && delta < 1000 / fpsLimit) {
+        return;
+      }
+
       drawVideoIntoCanvasFullWidth(canvas.value, video.value)
 
       hasToBlackAndWhite.value && toBlackAndWhite(canvas.value)
@@ -193,26 +200,21 @@ async function start () {
           applyConvolutionMatrix(canvas.value, convolutionToApply, useWasm.value)
         }
       }
-    }
 
-    setTimeout(update, 1000 / 30)
+      previousDelta = currentDelta;
+    }
   }
 }
 
-async function stream (id: string) {
-  mediaStream.getTracks()
-    .forEach(track => peerConnection.addTrack(track, mediaStream));
-
-  await createOffer(id, socketConnection)  
+async function connectToExistingUser(userId: string) {
+  createPeerConnection(socketConnection, userId, mediaStream);
+  await createOffer(userId, socketConnection);
 }
 
 onMounted(async () => {
   await start()
   await socketConnection.init()
-
-  peerConnection = createPeerConnection(socketConnection, socketConnection.id)
-  await stream(socketConnection.id)
-  myId = socketConnection.id
+  myId.value = socketConnection.id
 })
 </script>
 
@@ -263,6 +265,8 @@ onMounted(async () => {
 .videos-remote {
   display: grid;
   grid-auto-columns: 500px;
+  grid-auto-flow: column;
+  gap: 24px;
 
   & video {
     width: 100%;

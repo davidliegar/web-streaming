@@ -20,12 +20,12 @@ export class SocketConnection {
 
       this.socket.addEventListener("open", () => {
         console.log('socket opened')
-        this.postMessage({ type: "join-channel", channel: this.channel });
+        this.postMessage({ type: "join-channel", channel: this.channel, targetId: this.id });
         resolve(true)
       })
   
       if (this.socket.readyState == WebSocket.OPEN ) {
-        this.postMessage({ type: "join-channel", channel: this.channel });
+        this.postMessage({ type: "join-channel", channel: this.channel, targetId: this.id });
         resolve(true)
       }
     })
