@@ -1,6 +1,6 @@
 import type { SocketConnection } from "../socketConnection";
 
-interface PeerConnection {
+export interface PeerConnection {
   id: string,
   connection: RTCPeerConnection
 }

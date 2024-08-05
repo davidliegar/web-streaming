@@ -86,8 +86,13 @@
     <div class="width-constrain">
     <h3>{{ totalPeers }} people connected</h3>
     <section class="videos-remote">
+      <ul>
+        <li v-for="(peer) in peerConnectionsReactive">
+          {{ peer.id }}
+        </li>
+      </ul>
       <video
-        v-for="(peer) in peerConnections.filter(peer => peer.id !== myId)"
+        v-for="(peer) in peerConnectionsReactive.filter(peer => peer.id !== myId)"
         :id="`video-${peer.id}`"
       />
     </section>
@@ -96,7 +101,7 @@
 
 <script setup lang="ts">
 import { SocketConnection } from '@/utilities/socketConnection';
-import { onMounted, ref, type Ref } from 'vue'
+import { onMounted, ref, watch, type Ref } from 'vue'
 import {
   toBlackAndWhite,
   drawVideoIntoCanvasFullWidth,
@@ -115,7 +120,7 @@ import {
   handleIceCandidate,
   handleOffer,
   createPeerConnection,
-  sendMessageToAllPeers
+  type PeerConnection
 } from '@/utilities/RTCSession'
 const video = ref<HTMLVideoElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -130,18 +135,23 @@ const socketConnection = new SocketConnection('stream-video')
 let peerConnection: RTCPeerConnection
 let totalPeers = ref(0)
 let myId = ''
+const peerConnectionsReactive = ref<PeerConnection[]>([])
+
+watch(() => peerConnections, () => {
+  peerConnectionsReactive.value = peerConnections
+}, { deep: true, immediate: true })
 
 socketConnection.onmessage = info => {
   totalPeers.value = info.total
-  const { type, senderId, targetId, offer, answer, candidate } = info;
+  const { type, senderId, targetId, offer, answer, candidate, total } = info;
   console.log('2', type, targetId, myId)
   
-  if (targetId && targetId !== myId) {
-    if (type === 'icecandidate') {
-      handleIceCandidate(candidate, senderId)
-    } else if (type === 'offer') {
-      handleOffer(offer, senderId, socketConnection)
-    }
+  if (targetId && targetId !== myId) return
+
+  if (type === 'icecandidate') {
+    handleIceCandidate(candidate, senderId)
+  } else if (type === 'offer') {
+    handleOffer(offer, targetId, socketConnection)
   } else if (type === 'answer') {
     handleAnswer(answer, senderId);
   } 
